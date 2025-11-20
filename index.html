@@ -1,99 +1,336 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Machine Inspection Dashboard</title>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f5f6fa;
+    :root{
+      --bg:#F8FAFC; --card:#FFFFFF; --primary:#0f4fa8; --success:#16A34A; --danger:#DC2626;
+      --muted:#64748B; --radius:12px;
     }
-    h1 { margin-bottom: 20px; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    th, td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #e9e9e9;
-      text-align: left;
-    }
-    th {
-      background: #2d89ef;
-      color: white;
-    }
-    tr:hover {
-      background: #f1f1f1;
-    }
-    .pass {
-      color: #0f8b3d;
-      font-weight: bold;
-    }
-    .fail {
-      color: #d62828;
-      font-weight: bold;
+    *{box-sizing:border-box}
+    body{font-family:'Inter',system-ui,Arial;background:var(--bg);margin:0;padding:28px;color:#0f172a}
+    .container{max-width:1200px;margin:0 auto}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .title{display:flex;align-items:center;gap:16px}
+    .brand{background:var(--primary);color:#fff;padding:18px 22px;border-radius:12px;font-weight:700;font-size:20px}
+    .logo img{height:44px;border-radius:8px;object-fit:cover}
+    /* KPI row */
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px}
+    .card{background:var(--card);padding:20px;border-radius:var(--radius);box-shadow:0 6px 18px rgba(15,23,42,0.06);border:1px solid rgba(15,23,42,0.04)}
+    .kpi-label{color:var(--muted);font-weight:600;font-size:14px}
+    .kpi-value{font-size:30px;font-weight:700;margin-top:8px}
+    /* main layout */
+    .main-grid{display:grid;grid-template-columns:1fr 480px;gap:16px}
+    .charts{display:grid;grid-template-rows:auto 1fr;gap:16px}
+    .card h3{margin:0 0 10px 0;font-size:16px;font-weight:600;color:#0f172a}
+    /* bottom table */
+    .table-card{margin-top:12px}
+    table{width:100%;border-collapse:collapse;background:transparent}
+    thead th{background:#f1f5f9;padding:12px;text-align:left;font-weight:600}
+    tbody td{background:var(--card);padding:12px;border-bottom:1px solid #eef2f6}
+    tbody tr td:first-child{font-weight:600}
+    .chip{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;font-size:13px}
+    .chip.pass{background:#dcfce7;color:#166534}
+    .chip.fail{background:#fee2e2;color:#991b1b}
+    /* footer legend */
+    .legend{display:flex;gap:12px;align-items:center;margin-top:12px;font-size:13px;color:var(--muted)}
+    .legend .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px}
+    /* responsive */
+    @media (max-width: 980px){
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .main-grid{grid-template-columns:1fr;grid-auto-rows:auto}
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <header>
+      <div class="title">
+        <div class="brand">Machine Inspection Dashboard</div>
+        <!-- LOCAL IMAGE: path on my environment (keep as-is for now). 
+             When you deploy to GitHub, replace src with your raw.githubusercontent.com URL -->
+        <div class="logo"><img src='/mnt/data/A_digital_dashboard_titled_"Machine_Inspection_Das.png' alt="mockup"></div>
+      </div>
 
-  <h1>Machine Inspection Dashboard</h1>
+      <div style="color:var(--muted);font-weight:600">Live • Google Sheets</div>
+    </header>
 
-  <table id="sheetTable">
-    <thead>
-      <tr id="headerRow"></tr>
-    </thead>
-    <tbody id="dataRows"></tbody>
-  </table>
+    <!-- KPI row -->
+    <div id="kpiRow" class="kpis">
+      <!-- KPI cards injected here -->
+    </div>
 
-  <script>
-    async function loadSheet() {
-      const jsonURL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/gviz/tq?tqx=out:json&gid=1693819937";
+    <div class="main-grid">
+      <!-- LEFT: charts + summary table -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card charts">
+          <!-- Top: Doughnut -->
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <div style="flex:1;min-width:260px">
+              <h3>Inspection Pass/Fail Ratio</h3>
+              <canvas id="doughnut" width="400" height="240"></canvas>
+            </div>
+            <div style="width:220px;min-width:180px">
+              <div style="height:8px"></div>
+              <div class="legend"><span class="dot" style="background:var(--success)"></span> Passed</div>
+              <div class="legend"><span class="dot" style="background:var(--danger)"></span> Failed</div>
+            </div>
+          </div>
+        </div>
 
-      const response = await fetch(jsonURL);
-      const text = await response.text();
+        <div class="card table-card">
+          <h3>Inspection Summary</h3>
+          <table id="summaryTable">
+            <thead>
+              <tr><th>Inspection No.</th><th>Date / Time</th><th>Passed</th><th>Failed</th><th>Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-      // ลบ wrapper "google.visualization..."
-      const json = JSON.parse(text.substring(47, text.length - 2));
-      const rows = json.table.rows;
-      const columns = json.table.cols.map(col => col.label);
+      <!-- RIGHT: Bar chart -->
+      <div class="card">
+        <h3>Pass/Fail Count by Inspection Item</h3>
+        <canvas id="barChart" width="420" height="520"></canvas>
+        <div style="height:8px"></div>
+      </div>
+    </div>
+  </div>
 
-      const headerRow = document.getElementById("headerRow");
-      const dataRows = document.getElementById("dataRows");
+<script>
+/*
+  LIVE DASHBOARD (Type A)
+  - ดึงข้อมูลจาก Google Sheets (published link converted to gviz/tq JSON)
+  - แปลงเป็นโครงสร้างรายการตรวจ
+  - คำนวณ KPI, จำนวนผ่าน/ไม่ผ่านต่อหัวข้อ
+  - แสดง Doughnut, Horizontal stacked Bar และ Table
+*/
 
-      // สร้างหัวตารางอัตโนมัติ
-      columns.forEach(col => {
-        const th = document.createElement("th");
-        th.textContent = col;
-        headerRow.appendChild(th);
-      });
+/* CONFIG: Google Sheets source (converted to gviz/tq output) */
+const SHEET_GVIZ_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/gviz/tq?tqx=out:json&gid=1693819937";
 
-      // เติมข้อมูลแต่ละแถว
-      rows.forEach(row => {
-        const tr = document.createElement("tr");
+/* Utility: parse Google Visualization JSON (wrapper) */
+function parseGviz(text){
+  // The google response starts like: /*O_o*/\ngoogle.visualization.Query.setResponse(...);
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  const jsonStr = text.substring(start, end+1);
+  return JSON.parse(jsonStr);
+}
 
-        row.c.forEach(cell => {
-          const td = document.createElement("td");
-          let value = cell ? cell.v : "";
+/* Convert rows -> inspection objects
+   Expect columns header labels to match your sheet (Thai labels).
+   We'll keep only cell values (v) and map headers -> values.
+*/
+function rowsToObjects(gvizJson){
+  const cols = gvizJson.table.cols.map(c => c.label || c.id || '');
+  const rows = gvizJson.table.rows || [];
+  const data = rows.map(r => {
+    const obj = {};
+    for(let i=0;i<cols.length;i++){
+      const key = cols[i] || ('col'+i);
+      const cell = r.c[i];
+      obj[key] = cell ? cell.v : '';
+    }
+    return obj;
+  });
+  return {cols, data};
+}
 
-          // ตกแต่งสถานะ ผ่าน/ไม่ผ่าน
-          if (value === "ผ่าน") td.classList.add("pass");
-          if (value === "ไม่ผ่าน") td.classList.add("fail");
+/* Normalize data: detect inspection items columns (the columns that are pass/fail)
+   Heuristic: column headers that include keywords like 'ตรวจสอบ' or 'ทำความสะอาด' etc.
+   We will treat all columns except 'ลำดับ','NO','เลขที่งาน','Inspection No','วันและเวลา','Date/Time' as item columns.
+*/
+function detectColumns(cols){
+  const ignore = ['ลำดับ','No','NO','เลขที่','เลขที่งาน','Inspection No','Inspection No.','วันและเวลา','Date / Time','Date','Date/Time','วัน','เวลา','เวลา/วัน','ชื่อผู้ตรวจสอบ','Inspector','ผู้ตรวจ'];
+  const itemCols = cols.filter(c => {
+    if(!c) return false;
+    const clean = c.trim();
+    for(const ig of ignore){
+      if(clean.toLowerCase().includes(ig.toLowerCase())) return false;
+    }
+    return true;
+  });
+  return itemCols;
+}
 
-          td.textContent = value;
-          tr.appendChild(td);
-        });
+/* Compute KPIs & counts */
+function computeStats(data, itemCols){
+  const stats = {
+    inspections: data.length,
+    items: itemCols,
+    itemCounts: {}, // item -> {pass: n, fail: n}
+    rows: []
+  };
+  itemCols.forEach(it => stats.itemCounts[it] = {pass:0, fail:0});
 
-        dataRows.appendChild(tr);
-      });
+  data.forEach(row => {
+    let passCount = 0, failCount = 0;
+    itemCols.forEach(it => {
+      const v = (row[it] || '').toString().trim();
+      if(v === 'ผ่าน' || v.toLowerCase() === 'pass' || v.toLowerCase() === 'passed'){
+        stats.itemCounts[it].pass++;
+        passCount++;
+      } else if(v === 'ไม่ผ่าน' || v.toLowerCase() === 'fail' || v.toLowerCase() === 'failed' || v.toLowerCase()==='ไม่ผ่าน '){
+        stats.itemCounts[it].fail++;
+        failCount++;
+      } else {
+        // treat empty or other as pass? We'll ignore in pass/fail counts (so neither)
+      }
+    });
+    stats.rows.push({
+      raw: row,
+      passed: passCount,
+      failed: failCount,
+      status: failCount > 0 ? 'Failed' : 'Passed'
+    });
+  });
+
+  // compute totals
+  stats.totalCellPass = Object.values(stats.itemCounts).reduce((s,o)=>s+o.pass,0);
+  stats.totalCellFail = Object.values(stats.itemCounts).reduce((s,o)=>s+o.fail,0);
+  stats.passRate = Math.round((stats.totalCellPass / Math.max(1, stats.totalCellPass + stats.totalCellFail)) * 100);
+
+  return stats;
+}
+
+/* Render KPI cards */
+function renderKPIs(stats){
+  const kpiRow = document.getElementById('kpiRow');
+  kpiRow.innerHTML = '';
+  const items = [
+    {label:'Total Inspections', value: stats.inspections},
+    {label:'Total Passed (cells)', value: stats.totalCellPass},
+    {label:'Total Failed (cells)', value: stats.totalCellFail},
+    {label:'Pass Rate', value: stats.passRate + '%'}
+  ];
+  items.forEach(it => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `<div class="kpi-label">${it.label}</div><div class="kpi-value">${it.value}</div>`;
+    kpiRow.appendChild(el);
+  });
+}
+
+/* Render summary table */
+function renderTable(stats, headerCols){
+  const tbody = document.querySelector('#summaryTable tbody');
+  tbody.innerHTML = '';
+  stats.rows.forEach(r => {
+    const tr = document.createElement('tr');
+    // choose columns to show: try to find inspection no (NO...) and datetime fields
+    const raw = r.raw;
+    const inspectionNo = raw['NO'] || raw['Inspection No.'] || raw['Inspection No'] || raw['เลขที่งาน'] || raw['เลขที่'] || raw['ลำดับ'] || raw['Inspection No. '] || raw['Inspection No.'] || raw['Inspection No.'] || raw[Object.keys(raw)[0]] || '';
+    const datetime = raw['วันและเวลา'] || raw['Date / Time'] || raw['Date/Time'] || raw['Date'] || raw['วันที่'] || '';
+    tr.innerHTML = `<td>${inspectionNo}</td>
+                    <td>${datetime}</td>
+                    <td>${r.passed}</td>
+                    <td>${r.failed}</td>
+                    <td><span class="chip ${r.status==='Passed'?'pass':'fail'}">${r.status}</span></td>`;
+    tr.onclick = ()=> {
+      // show drill-down details
+      const details = stats.items.map(it => `${it}: ${raw[it]||''}`).join('\\n');
+      alert(`Details for ${inspectionNo}\\n\\n${details}`);
+    };
+    tbody.appendChild(tr);
+  });
+}
+
+/* Render charts using Chart.js */
+let doughnutChart = null;
+let barChart = null;
+
+function renderCharts(stats){
+  // Doughnut
+  const dCtx = document.getElementById('doughnut').getContext('2d');
+  if(doughnutChart) doughnutChart.destroy();
+  doughnutChart = new Chart(dCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Passed','Failed'],
+      datasets: [{
+        data: [stats.totalCellPass, stats.totalCellFail],
+        backgroundColor: ['#16A34A', '#DC2626'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout: '60%',
+      plugins:{
+        legend:{position:'right'}
+      }
+    }
+  });
+
+  // Horizontal stacked bar for items
+  const labels = stats.items.slice().reverse(); // reverse for nicer top-to-bottom
+  const passData = labels.map(l => stats.itemCounts[l].pass);
+  const failData = labels.map(l => stats.itemCounts[l].fail);
+
+  const bCtx = document.getElementById('barChart').getContext('2d');
+  if(barChart) barChart.destroy();
+  barChart = new Chart(bCtx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Passed', data: passData, backgroundColor: '#16A34A', stack: 's1' },
+        { label: 'Failed', data: failData, backgroundColor: '#DC2626', stack: 's1' }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      scales: {
+        x: { beginAtZero:true }
+      },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+/* Main loader */
+async function loadAndRender(){
+  try{
+    const res = await fetch(SHEET_GVIZ_URL);
+    const txt = await res.text();
+    const g = parseGviz(txt);
+    const {cols, data} = rowsToObjects(g);
+    const itemCols = detectColumns(cols);
+
+    // fallback: if detectColumns found none, assume all columns except first two are items
+    let items = itemCols;
+    if(items.length === 0){
+      items = cols.slice(1); // naive fallback
     }
 
-    loadSheet();
-  </script>
+    const stats = computeStats(data, items);
+    renderKPIs(stats);
+    renderTable(stats, cols);
+    renderCharts(stats);
+  }catch(err){
+    console.error('Load error', err);
+    alert('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ ตรวจสอบว่า sheet ถูก Publish หรือ URL ถูกต้อง');
+  }
+}
+
+/* Run */
+loadAndRender();
+
+/* OPTIONAL: auto-refresh every 5 minutes to pick up sheet updates */
+setInterval(loadAndRender, 1000 * 60 * 5);
+
+</script>
 </body>
 </html>
