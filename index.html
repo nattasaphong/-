@@ -1,0 +1,244 @@
+<!-- Dashboard-style index.html — uses published-to-web URLs per sheet gid -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Machine Inspection Dashboard</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{--bg:#f1f5f9;--card:#fff;--muted:#6b7280;--accent:#123a66;--green:#2f9e44;--red:#ef4444}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#eef4f9 0%,var(--bg) 100%);padding:28px}
+    .wrap{max-width:1200px;margin:0 auto}
+    .topbar{background:var(--accent);color:#fff;border-radius:10px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between}
+    .title{font-size:20px;font-weight:700}
+    .card-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:22px}
+    .card{background:var(--card);padding:18px;border-radius:10px;box-shadow:0 2px 8px rgba(15,23,42,0.06)}
+    .kpi-value{font-size:36px;font-weight:700;margin-top:6px}
+    .kpi-label{color:var(--muted);font-size:14px}
+    .main{display:grid;grid-template-columns:1fr 420px;gap:18px;margin-top:18px}
+    .panel{background:var(--card);padding:20px;border-radius:10px;box-shadow:0 2px 8px rgba(15,23,42,0.04)}
+    .h{font-weight:600;margin-bottom:12px}
+    .legend{display:flex;gap:12px;align-items:center;margin-top:12px}
+    .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+    .table{width:100%;border-collapse:collapse;margin-top:12px}
+    .table th{background:#fbfdff;padding:10px;border-bottom:1px solid #eef2f7;text-align:left;font-weight:600}
+    .table td{padding:12px;border-bottom:1px solid #f1f5f9}
+    .status{padding:6px 10px;border-radius:8px;color:#fff;font-weight:600;font-size:13px}
+    .status.pass{background:var(--green)}
+    .status.fail{background:var(--red)}
+    /* responsive */
+    @media (max-width:1000px){.card-grid{grid-template-columns:repeat(2,1fr)}.main{grid-template-columns:1fr}}
+    @media (max-width:520px){.card-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title">Machine Inspection Dashboard</div>
+      <div style="opacity:.9">&nbsp;</div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;margin-top:14px">
+      <label for="sheetSelect">เลือกชีต:</label>
+      <select id="sheetSelect" style="padding:8px;border-radius:6px;border:1px solid #e6edf3">
+        <option value="1693819937">Sheet A</option>
+        <option value="1885388831">Sheet B</option>
+        <option value="1533454341">Sheet C</option>
+      </select>
+      <button id="btnLoad" style="padding:8px 12px;border-radius:6px;border:none;background:#0b64a3;color:#fff;cursor:pointer">โหลดข้อมูล</button>
+      <div id="msg" style="margin-left:8px;color:var(--muted)"></div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="kpi-label">Total Inspections</div>
+        <div id="totalIns" class="kpi-value">—</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Total Passed</div>
+        <div id="totalPass" class="kpi-value">—</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Total Failed</div>
+        <div id="totalFail" class="kpi-value">—</div>
+      </div>
+      <div class="card">
+        <div class="kpi-label">Pass Rate</div>
+        <div id="passRate" class="kpi-value">—</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div>
+        <div class="panel">
+          <div class="h">Inspection Pass/Fail Ratio</div>
+          <canvas id="pieChart" width="400" height="260"></canvas>
+          <div class="legend">
+            <div style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--green)"></span> Passed</div>
+            <div style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--red)"></span> Failed</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <div class="h">Inspection Summary</div>
+          <table class="table" id="summaryTable">
+            <thead>
+              <tr><th>Inspection No.</th><th>Date / Time</th><th>Passed</th><th>State</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="h">Pass/Fail Count by Inspection Item</div>
+          <canvas id="barChart" width="400" height="460"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Use the published-to-web URLs you provided, keyed by gid
+    const PUBLISHED_MAP = {
+      '1693819937': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/pubhtml?gid=1693819937&single=true',
+      '1885388831': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/pubhtml?gid=1885388831&single=true',
+      '1533454341': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/pubhtml?gid=1533454341&single=true'
+    };
+
+    function buildSheetURL(gid){
+      // If a published URL exists, use it; otherwise fall back to gviz endpoint
+      if(PUBLISHED_MAP[gid]) return PUBLISHED_MAP[gid];
+      return `https://docs.google.com/spreadsheets/d/${SSID}/gviz/tq?tqx=out:json&gid=${gid}`;
+    }
+
+    // helper to extract table from a pubhtml response
+    function parsePubHtml(html){
+      // The 'pubhtml' page contains <table> markup. We'll parse it and extract rows.
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const table = doc.querySelector('table');
+      if(!table) return null;
+
+      const headers = Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+      const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr=>{
+        return Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
+      });
+      return {headers, rows};
+    }
+
+    // existing gviz parser (kept for fallback)
+    function parseGviz(text){
+      const json = JSON.parse(text.substring(text.indexOf('{')));
+      return json.table;
+    }
+
+    function safeNum(v){ return Number(v)||0; }
+
+    let pieChart=null, barChart=null;
+
+    document.getElementById('btnLoad').addEventListener('click', load);
+
+    async function load(){
+      const gid = document.getElementById('sheetSelect').value;
+      const url = buildSheetURL(gid);
+      document.getElementById('msg').textContent = 'กำลังโหลด...';
+
+      try{
+        const res = await fetch(url);
+        const text = await res.text();
+
+        // If using pubhtml, parse table; if gviz, parse JSON
+        let headers=[], rows=[];
+        if(PUBLISHED_MAP[gid]){
+          const parsed = parsePubHtml(text);
+          if(!parsed) throw new Error('ไม่พบตารางใน pubhtml');
+          headers = parsed.headers.map(h=>h.toLowerCase());
+          rows = parsed.rows; // array of arrays
+
+          // Now try to map rows into our expected structure
+          // assume columns: inspection_no, datetime, item_name, result or passed counts
+          // We'll attempt flexible detection
+
+          // compute KPIs
+          let total=0, pass=0, fail=0;
+          const itemCounts = {};
+          const summaryRows = [];
+
+          for(const r of rows){
+            total++;
+            const rowObj = {};
+            headers.forEach((h,i)=> rowObj[h]=r[i]||'');
+
+            // detect result
+            let result = '';
+            if(rowObj['result']) result = rowObj['result'];
+            else if(rowObj['status']) result = rowObj['status'];
+            else if(rowObj['passed'] && rowObj['total']){
+              result = (safeNum(rowObj['passed']) === safeNum(rowObj['total']))? 'Pass':'Fail';
+            } else {
+              // try last cell
+              const last = r[r.length-1]||'';
+              const low = last.toLowerCase();
+              if(low.includes('ผ่าน')||low.includes('pass')||low.includes('ok')) result='Pass';
+              else if(low.includes('ไม่ผ่าน')||low.includes('fail')) result='Fail';
+            }
+
+            if(result.toLowerCase().includes('f')) fail++; else pass++;
+
+            const itemName = rowObj['item']||rowObj['inspection item']||rowObj['รายการ']||r[2]||'';
+            if(itemName){ if(!itemCounts[itemName]) itemCounts[itemName]={pass:0,fail:0}; if(result.toLowerCase().includes('f')) itemCounts[itemName].fail++; else itemCounts[itemName].pass++; }
+
+            summaryRows.push({insNo: rowObj['inspection no']||rowObj['inspection_no']||r[0]||'', dt: rowObj['date/time']||rowObj['datetime']||r[1]||'', passed: result.toLowerCase().includes('p'), state: result||''});
+          }
+
+          // update UI
+          document.getElementById('totalIns').textContent = total;
+          document.getElementById('totalPass').textContent = pass;
+          document.getElementById('totalFail').textContent = fail;
+          document.getElementById('passRate').textContent = total? Math.round((pass/total)*100)+'%':'0%';
+
+          // table
+          const tbody = document.querySelector('#summaryTable tbody'); tbody.innerHTML='';
+          summaryRows.slice(0,8).forEach(r=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${r.insNo}</td><td>${r.dt}</td><td>${r.passed?1:0}</td><td><span class='status ${r.passed? 'pass':'fail'}'>${r.state|| (r.passed? 'Pass':'Fail')}</span></td>`;
+            tbody.appendChild(tr);
+          });
+
+          // pie
+          const pieCtx = document.getElementById('pieChart').getContext('2d'); if(pieChart) pieChart.destroy();
+          pieChart = new Chart(pieCtx,{type:'doughnut',data:{labels:['Passed','Failed'],datasets:[{data:[pass,fail],backgroundColor:['#2f9e44','#ef4444']}]},options:{plugins:{legend:{display:false}},cutout:'70%'}});
+
+          // bar
+          const labels = Object.keys(itemCounts);
+          const passValues = labels.map(l=>itemCounts[l].pass||0);
+          const failValues = labels.map(l=>itemCounts[l].fail||0);
+          const barCtx = document.getElementById('barChart').getContext('2d'); if(barChart) barChart.destroy();
+          barChart = new Chart(barCtx,{type:'bar',data:{labels:labels,datasets:[{label:'Passed',data:passValues,backgroundColor:'#2f9e44'},{label:'Failed',data:failValues,backgroundColor:'#ef4444'}]},options:{indexAxis:'y',responsive:true,scales:{x:{beginAtZero:true}},plugins:{legend:{position:'bottom'}}}});
+
+        } else {
+          // fallback for gviz
+          const table = parseGviz(text);
+          // existing logic from previous version (not duplicated here for brevity)
+          document.getElementById('msg').textContent = 'ไม่รองรับรูปแบบไฟล์นี้โดยตรง';
+        }
+
+        document.getElementById('msg').textContent = '';
+      }
+      catch(err){
+        console.error(err);
+        document.getElementById('msg').textContent = 'โหลดข้อมูลไม่ได้ — ตรวจสอบว่า URL ถูกต้องและไฟล์เผยแพร่ได้ (Publish to web)';
+      }
+    }
+
+    // auto-load
+    window.addEventListener('load', ()=>load());
+  </script>
+</body>
+</html>
