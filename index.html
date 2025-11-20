@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Machine Inspection Dashboard</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#F4F6F9; --card:#fff; --primary:#0f4fa8;
+      --success:#16A34A; --danger:#DC2626; 
+      --muted:#64748B; --radius:14px;
+    }
+    body{
+      font-family:'Inter',sans-serif;
+      background:var(--bg); margin:0; padding:28px; color:#0f172a;
+    }
+    .container{max-width:1250px;margin:0 auto}
+
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+    .brand{
+      background:var(--primary);
+      padding:18px 24px; border-radius:var(--radius);
+      font-size:20px; font-weight:700; color:#fff;
+    }
+
+    .selector-area{
+      margin-bottom:20px;
+      display:flex; align-items:center; gap:12px;
+    }
+    select{
+      padding:10px 14px;
+      border-radius:10px;
+      border:1px solid #cbd5e1;
+      font-size:15px;
+    }
+
+    .kpis{
+      display:grid; grid-template-columns:repeat(4,1fr);
+      gap:16px; margin-bottom:20px;
+    }
+    .card{
+      background:var(--card); padding:20px;
+      border-radius:var(--radius);
+      box-shadow:0 4px 12px rgba(0,0,0,0.05);
+    }
+    .kpi-label{color:var(--muted);font-size:14px;font-weight:600}
+    .kpi-value{font-size:32px;font-weight:700;margin-top:6px}
+
+    .main-grid{
+      display:grid; grid-template-columns:1fr 450px;
+      gap:16px;
+    }
+
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    thead th{
+      background:#e2e8f0;padding:12px;text-align:left;font-size:14px;font-weight:600;
+    }
+    tbody td{
+      background:var(--card);padding:12px;border-bottom:1px solid #e5e7eb;font-size:14px;
+    }
+    .chip{
+      padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px;
+    }
+    .pass{background:#dcfce7;color:#166534}
+    .fail{background:#fee2e2;color:#991b1b}
+
+    @media (max-width:980px){
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .main-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- HEADER -->
+    <header>
+      <div class="brand">Machine Inspection Dashboard</div>
+      <div style="color:var(--muted);font-weight:600">Live • Google Sheets</div>
+    </header>
+
+    <!-- SHEET SELECTOR -->
+    <div class="selector-area">
+      <label><b>เลือกข้อมูล:</b></label>
+      <select id="sheetSelector">
+        <option value="1693819937">หลังการใช้งาน</option>
+        <option value="1885388831">ทุก 4 เดือน</option>
+        <option value="1533454341">รายปี</option>
+      </select>
+    </div>
+
+    <!-- KPIs -->
+    <div id="kpiRow" class="kpis"></div>
+
+    <div class="main-grid">
+
+      <!-- LEFT COLUMN -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Doughnut -->
+        <div class="card">
+          <h3 style="margin:0 0 12px 0">Inspection Pass/Fail Ratio</h3>
+          <canvas id="doughnut" height="220"></canvas>
+        </div>
+
+        <!-- TABLE -->
+        <div class="card">
+          <h3 style="margin:0 0 12px 0">Inspection Summary</h3>
+
+          <table id="summaryTable">
+            <thead>
+              <tr>
+                <th>Inspection No.</th>
+                <th>Date / Time</th>
+                <th>Passed</th>
+                <th>Failed</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN (BAR CHART) -->
+      <div class="card">
+        <h3 style="margin:0 0 12px 0">Pass/Fail Count by Item</h3>
+        <canvas id="barChart" height="600"></canvas>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+
+function buildSheetURL(gid){
+  return `https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/gviz/tq?tqx=out:json&gid=${gid}`;
+}
+
+/* Parse gviz */
+function parseGviz(text){
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  return JSON.parse(text.substring(start, end+1));
+}
+
+/* Convert rows → objects */
+function rowsToObjects(g){
+  const cols = g.table.cols.map(c=>c.label || c.id || "");
+  return g.table.rows.map(r=>{
+    const obj = {};
+    cols.forEach((c,i)=> obj[c] = r.c[i] ? r.c[i].v : "");
+    return obj;
+  });
+}
+
+/* Detect item columns */
+function detectItemCols(cols){
+  const ignoreKeywords = [
+    "ลำดับ","no","เลขที่","Inspection","วัน","เวลา","Date"
+  ];
+  return cols.filter(c => {
+    const lc = c.toLowerCase();
+    return !ignoreKeywords.some(k => lc.includes(k.toLowerCase()));
+  });
+}
+
+/* Compute stats */
+function computeStats(data, items){
+  const stats = {
+    inspections: data.length,
+    items,
+    itemCounts:{},
+    rows:[]
+  };
+
+  items.forEach(it=> stats.itemCounts[it]={pass:0,fail:0});
+
+  data.forEach(row=>{
+    let p=0,f=0;
+    items.forEach(it=>{
+      const v = (row[it] || "").toString().trim();
+      if(["ผ่าน","pass","passed"].includes(v.toLowerCase())){
+        stats.itemCounts[it].pass++; p++;
+      }else if(["ไม่ผ่าน","fail","failed"].includes(v.toLowerCase())){
+        stats.itemCounts[it].fail++; f++;
+      }
+    });
+    stats.rows.push({
+      raw:row, passed:p, failed:f, status:f>0?"Failed":"Passed"
+    });
+  });
+
+  stats.totalCellPass = Object.values(stats.itemCounts).reduce((s,o)=>s+o.pass,0);
+  stats.totalCellFail = Object.values(stats.itemCounts).reduce((s,o)=>s+o.fail,0);
+  stats.passRate = Math.round((stats.totalCellPass/(stats.totalCellPass+stats.totalCellFail))*100);
+
+  return stats;
+}
+
+/* Render KPIs */
+function renderKPIs(stats){
+  const box = document.getElementById("kpiRow");
+  box.innerHTML = "";
+  const items = [
+    ["จำนวนการตรวจทั้งหมด", stats.inspections],
+    ["ผ่านทั้งหมด (Cells)", stats.totalCellPass],
+    ["ไม่ผ่านทั้งหมด (Cells)", stats.totalCellFail],
+    ["อัตราผ่าน", stats.passRate+"%"]
+  ];
+  items.forEach(([label,value])=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`<div class="kpi-label">${label}</div>
+                   <div class="kpi-value">${value}</div>`;
+    box.appendChild(div);
+  });
+}
+
+/* Render table */
+function renderTable(stats){
+  const tbody=document.querySelector("#summaryTable tbody");
+  tbody.innerHTML="";
+  stats.rows.forEach(r=>{
+    const raw=r.raw;
+    const no = raw["ลำดับ"] || raw["NO"] || raw["Inspection No."] || raw["เลขที่"] || "";
+    const dt = raw["วันและเวลา"] || raw["Date"] || raw["Date / Time"] || "";
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${no}</td>
+      <td>${dt}</td>
+      <td>${r.passed}</td>
+      <td>${r.failed}</td>
+      <td><span class="chip ${r.status==="Passed"?'pass':'fail'}">${r.status}</span></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+let doughnutChart=null, barChart=null;
+
+/* Render charts */
+function renderCharts(stats){
+  // Doughnut
+  const ctx1=document.getElementById("doughnut").getContext("2d");
+  if(doughnutChart) doughnutChart.destroy();
+  doughnutChart = new Chart(ctx1,{
+    type:"doughnut",
+    data:{
+      labels:["Passed","Failed"],
+      datasets:[{
+        data:[stats.totalCellPass, stats.totalCellFail],
+        backgroundColor:["#16A34A","#DC2626"],
+        borderWidth:0
+      }]
+    },
+    options:{cutout:"60%"}
+  });
+
+  // Bar
+  const items = stats.items.slice().reverse();
+  const pass = items.map(it=>stats.itemCounts[it].pass);
+  const fail = items.map(it=>stats.itemCounts[it].fail);
+
+  const ctx2=document.getElementById("barChart").getContext("2d");
+  if(barChart) barChart.destroy();
+  barChart = new Chart(ctx2,{
+    type:"bar",
+    data:{
+      labels:items,
+      datasets:[
+        {label:"Passed", data:pass, backgroundColor:"#16A34A", stack:"x"},
+        {label:"Failed", data:fail, backgroundColor:"#DC2626", stack:"x"}
+      ]
+    },
+    options:{indexAxis:"y", responsive:true}
+  });
+}
+
+/* Load & Render */
+async function loadData(){
+  try{
+    const gid = document.getElementById("sheetSelector").value;
+    const url = buildSheetURL(gid);
+
+    const res = await fetch(url);
+    const txt = await res.text();
+
+    const g = parseGviz(txt);
+    const cols = g.table.cols.map(c=>c.label || "");
+    const data = rowsToObjects(g);
+    const items = detectItemCols(cols);
+
+    const stats = computeStats(data, items);
+
+    renderKPIs(stats);
+    renderTable(stats);
+    renderCharts(stats);
+
+  }catch(e){
+    alert("โหลดข้อมูลไม่สำเร็จ ตรวจสอบว่าเปิด Publish to Web แล้ว");
+    console.error(e);
+  }
+}
+
+document.getElementById("sheetSelector").addEventListener("change", loadData);
+
+loadData();
+setInterval(loadData, 1000*60*5);
+
+</script>
+</body>
+</html>
