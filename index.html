@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Machine Inspection Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f6fa;
+    }
+    h1 { margin-bottom: 20px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #e9e9e9;
+      text-align: left;
+    }
+    th {
+      background: #2d89ef;
+      color: white;
+    }
+    tr:hover {
+      background: #f1f1f1;
+    }
+    .pass {
+      color: #0f8b3d;
+      font-weight: bold;
+    }
+    .fail {
+      color: #d62828;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Machine Inspection Dashboard</h1>
+
+  <table id="sheetTable">
+    <thead>
+      <tr id="headerRow"></tr>
+    </thead>
+    <tbody id="dataRows"></tbody>
+  </table>
+
+  <script>
+    async function loadSheet() {
+      const jsonURL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vT6cIfK7nUfG4z6imhBBWYcFqWgv0GiiEIn1Nus0jlnooye8lzdSHE0xnY982KIKlht0goB9hSbOQAu/gviz/tq?tqx=out:json&gid=1693819937";
+
+      const response = await fetch(jsonURL);
+      const text = await response.text();
+
+      // ลบ wrapper "google.visualization..."
+      const json = JSON.parse(text.substring(47, text.length - 2));
+      const rows = json.table.rows;
+      const columns = json.table.cols.map(col => col.label);
+
+      const headerRow = document.getElementById("headerRow");
+      const dataRows = document.getElementById("dataRows");
+
+      // สร้างหัวตารางอัตโนมัติ
+      columns.forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+
+      // เติมข้อมูลแต่ละแถว
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+
+        row.c.forEach(cell => {
+          const td = document.createElement("td");
+          let value = cell ? cell.v : "";
+
+          // ตกแต่งสถานะ ผ่าน/ไม่ผ่าน
+          if (value === "ผ่าน") td.classList.add("pass");
+          if (value === "ไม่ผ่าน") td.classList.add("fail");
+
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+
+        dataRows.appendChild(tr);
+      });
+    }
+
+    loadSheet();
+  </script>
+</body>
+</html>
