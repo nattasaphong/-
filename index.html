@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Machine Inspection Dashboard</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#eef4f8;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --green:#2f9e44;
+      --red:#ef4444;
+      --accent:#153b63;
+      --accent-deep:#0f2b48;
+      --glass: rgba(255,255,255,0.85);
+      --shadow: 0 6px 18px rgba(18,52,86,0.08);
+      --card-radius:14px;
+    }
+
+    html,body{height:100%;margin:0;font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,#f4f7fb 0%, #eef4f8 100%); color:#0b1720}
+    .wrap{max-width:1200px;margin:28px auto;padding:0 20px}
+
+    .topbar{
+      background:linear-gradient(90deg,var(--accent) 0%, var(--accent-deep) 100%);
+      color:#fff;
+      padding:26px 28px;
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .topbar h1{margin:0;font-size:22px;font-weight:700;letter-spacing:0.2px}
+    .topbar .user{
+      width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff
+    }
+
+    .controls{display:flex;gap:12px;align-items:center;margin-top:18px}
+    label{font-weight:600;color:var(--muted)}
+    select{padding:10px 12px;border-radius:10px;border:1px solid #dfe7ef;background:var(--card);font-weight:600}
+    button#btnLoad{padding:10px 14px;border-radius:10px;border:none;background:#0b64a3;color:white;font-weight:700;cursor:pointer;box-shadow:0 6px 12px rgba(11,100,163,0.18)}
+    #msg{color:var(--muted);margin-left:6px}
+
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:18px;
+      margin-top:18px;
+    }
+    .kpi{
+      background:var(--card);
+      padding:20px;border-radius:12px;box-shadow:var(--shadow);
+    }
+    .kpi .label{color:var(--muted);font-size:14px;margin-bottom:8px}
+    .kpi .value{font-size:34px;font-weight:800;color:#0b1720}
+
+    .main{
+      display:grid;
+      grid-template-columns: 1fr 420px;
+      gap:22px;
+      margin-top:22px;
+    }
+
+    .panel{
+      background:var(--card);
+      padding:20px;border-radius:12px;box-shadow:var(--shadow);
+    }
+    .panel h3{margin:0 0 12px 0;font-size:18px;color:#0b1720}
+
+    .donut-wrap{display:flex;gap:20px;align-items:center}
+    .donut-legend{display:flex;flex-direction:column;gap:10px;margin-left:12px}
+    .leg-item{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--muted)}
+    .swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
+
+    .right-panel .chart-area{height:520px;padding-top:6px}
+
+    .summary-table{
+      width:100%;border-collapse:collapse;margin-top:8px;font-size:14px
+    }
+    .summary-table th{background:#f6f9fb;text-align:left;padding:10px 12px;font-weight:700;color:var(--muted);border-bottom:1px solid #eef3f6}
+    .summary-table td{padding:12px;border-bottom:1px solid #f1f4f6}
+    .status{padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:13px;display:inline-block}
+    .status.pass{background:var(--green)}
+    .status.fail{background:var(--red)}
+    .small-muted{color:var(--muted);font-weight:600}
+
+    .chart-legend{display:flex;gap:18px;align-items:center;margin-top:16px}
+    .chart-legend .item{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--muted)}
+    .chart-legend .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+    @media(max-width:1100px){
+      .main{grid-template-columns: 1fr}
+      .right-panel .chart-area{height:380px}
+      .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <h1>แดชบอร์ดตรวจสอบเครื่องจักร</h1>
+      <div class="user">NC</div>
+    </div>
+
+    <div class="controls">
+      <label for="sheetSelect">เลือกชีต:</label>
+      <select id="sheetSelect">
+        <option value="หลังการใช้งาน">หลังการใช้งาน</option>
+        <option value="ทุก 4 เดือน">ทุก 4 เดือน</option>
+        <option value="รายปี">รายปี</option>
+      </select>
+      <button id="btnLoad">โหลดข้อมูล</button>
+      <span id="msg"></span>
+    </div>
+
+    <div class="kpi-grid" aria-hidden="false">
+      <div class="kpi">
+        <div class="label">ตรวจทั้งหมด</div>
+        <div id="totalIns" class="value">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">ผ่านทั้งหมด</div>
+        <div id="totalPass" class="value">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">ไม่ผ่านทั้งหมด</div>
+        <div id="totalFail" class="value">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">อัตราผ่าน</div>
+        <div id="passRate" class="value">—</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div>
+        <div class="panel">
+          <h3>อัตราส่วน ผ่าน / ไม่ผ่าน</h3>
+          <div style="display:flex;align-items:center;gap:18px;">
+            <canvas id="pieChart" width="320" height="220"></canvas>
+            <div class="donut-legend">
+              <div style="height:12px"></div>
+              <div class="leg-item"><span class="swatch" style="background:var(--green)"></span>ผ่าน</div>
+              <div class="leg-item"><span class="swatch" style="background:var(--red)"></span>ไม่ผ่าน</div>
+            </div>
+          </div>
+          <div class="chart-legend" style="justify-content:flex-start">
+            <div class="item"><span class="dot" style="background:var(--green)"></span>ผ่าน</div>
+            <div class="item"><span class="dot" style="background:var(--red)"></span>ไม่ผ่าน</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <h3>สรุปผลการตรวจ</h3>
+          <table class="summary-table" id="summaryTable">
+            <thead>
+              <tr><th style="width:28%">เลขที่ตรวจ</th><th style="width:32%">วันที่ / เวลา</th><th style="width:15%">ผ่าน</th><th style="width:25%">สถานะ</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="panel">
+          <h3>จำนวน ผ่าน/ไม่ผ่าน (แยกตามรายการตรวจ)</h3>
+          <div class="chart-area">
+            <canvas id="barChart" width="400" height="480"></canvas>
+          </div>
+          <div class="chart-legend">
+            <div class="item"><span class="dot" style="background:var(--green)"></span>ผ่าน</div>
+            <div class="item"><span class="dot" style="background:var(--red)"></span>ไม่ผ่าน</div>
+            <div style="flex:1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbwCxcc5pTD08dGYOw1Qa3Xnb2XgLRoY4XcKaGyzMmM3QS2VgWkl4mj0WuKKtaJYL0MI/exec";
+
+function parseCSV(text){
+  return text.trim().split(/\r?\n/).map(row => row.split(","));
+}
+
+let pieChart=null, barChart=null;
+
+document.getElementById("btnLoad").addEventListener("click", load);
+
+async function load(){
+  const sheet = document.getElementById("sheetSelect").value;
+  const msg = document.getElementById("msg");
+  msg.textContent = "กำลังโหลด...";
+
+  try{
+    const res = await fetch(`${API_URL}?sheet=${encodeURIComponent(sheet)}`);
+    const json = await res.json();
+    const csv = json.data;
+    if(!csv || csv.length < 2) throw new Error("No data");
+
+    const headers = csv[0].map(h => (h||"").toString().toLowerCase().trim());
+    const rows = csv.slice(1);
+
+    let total = 0, pass = 0, fail = 0;
+    const itemCounts = {};
+    const summary = [];
+
+    rows.forEach(r => {
+      if(r.join("").trim() === "") return;
+      total++;
+      const obj = {};
+      headers.forEach((h,i)=> obj[h] = (r[i]||"").toString());
+      let result = (obj["result"] || obj["status"] || obj["pass/fail"] || r[r.length-1] || "").toString().toLowerCase();
+      const isPass = result.includes("pass") || result.includes("ผ่าน") || result.includes("ok") || result.includes("true") || result === "p";
+      if(isPass) pass++; else fail++;
+
+      const item = obj["item"] || obj["inspection item"] || obj["check item"] || r[2] || "Unknown";
+      if(!itemCounts[item]) itemCounts[item] = {pass:0, fail:0};
+      if(isPass) itemCounts[item].pass++; else itemCounts[item].fail++;
+
+      summary.push({
+        ins: obj["inspection no"] || obj["id"] || r[0] || "",
+        dt: obj["date/time"] || obj["datetime"] || obj["date"] || r[1] || "",
+        isPass
+      });
+    });
+
+    document.getElementById("totalIns").textContent = total;
+    document.getElementById("totalPass").textContent = pass;
+    document.getElementById("totalFail").textContent = fail;
+    document.getElementById("passRate").textContent = total>0 ? Math.round((pass/total)*100) + "%" : "—";
+
+    const tbody = document.querySelector("#summaryTable tbody");
+    tbody.innerHTML = "";
+    summary.slice(0,8).forEach(r=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(r.ins)}</td>
+        <td>${escapeHtml(r.dt)}</td>
+        <td>${r.isPass?1:0}</td>
+        <td>${r.isPass? '<span class="status pass">ผ่าน</span>':'<span class="status fail">ไม่ผ่าน</span>'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const pieCtx = document.getElementById("pieChart").getContext("2d");
+    if(pieChart) pieChart.destroy();
+    pieChart = new Chart(pieCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['ผ่าน','ไม่ผ่าน'],
+        datasets: [{ data:[pass,fail], backgroundColor:[getComputedStyle(document.documentElement).getPropertyValue('--green').trim(), getComputedStyle(document.documentElement).getPropertyValue('--red').trim()] }]
+      },
+      options: {
+        cutout: '70%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/(pass+fail||1)*100)}%)` } }
+        }
+      }
+    });
+
+    const labels = Object.keys(itemCounts);
+    labels.sort((a,b)=> (itemCounts[b].pass+itemCounts[b].fail) - (itemCounts[a].pass+itemCounts[a].fail));
+    const passData = labels.map(k=>itemCounts[k].pass);
+    const failData = labels.map(k=>itemCounts[k].fail);
+
+    const barCtx = document.getElementById("barChart").getContext("2d");
+    if(barChart) barChart.destroy();
+    barChart = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'ผ่าน', data: passData, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--green').trim() },
+          { label: 'ไม่ผ่าน', data: failData, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--red').trim() }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: { stacked: true, beginAtZero:true },
+          y: { stacked: true, ticks: {autoSkip:false} }
+        },
+        plugins: {
+          legend: { display:false },
+          tooltip: { mode: 'index', intersect:false }
+        },
+        responsive:true,
+        maintainAspectRatio:false
+      }
+    });
+
+    msg.textContent = "";
+
+  } catch(err){
+    console.error(err);
+    document.getElementById("msg").textContent = "โหลดข้อมูลไม่ได้ — ตรวจสอบชื่อชีต / Apps Script";
+  }
+}
+
+function escapeHtml(s){
+  if(!s) return "";
+  return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+}
+
+window.addEventListener("load", ()=>{ load(); });
+</script>
+
+</body>
+</html>
