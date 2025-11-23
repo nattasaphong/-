@@ -212,6 +212,14 @@ async function load(){
     let total = 0, pass = 0, fail = 0;
     const itemCounts = {};
     const summary = [];
+    
+    function pickEveryThirdColumn(row){
+  const result = [];
+  for(let i = 2; i < row.length; i += 3){ // C = index 2
+    result.push((row[i] || "").toString());
+  }
+  return result.join(" | ");
+}
 
     rows.forEach(r => {
       if(r.join("").trim() === "") return;
@@ -227,7 +235,7 @@ async function load(){
       if(isPass) itemCounts[item].pass++; else itemCounts[item].fail++;
 
       summary.push({
-        ins: obj["inspection no"] || obj["id"] || r[0] || "",
+        ins: pickEveryThirdColumn(r),
         dt: obj["date/time"] || obj["datetime"] || obj["date"] || r[1] || "",
         isPass
       });
