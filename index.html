@@ -213,10 +213,12 @@ async function load(){
     const itemCounts = {};
     const summary = [];
     
-    function pickEveryThirdColumn(row){
+   function pickEveryThirdColumn(row, headers){
   const result = [];
-  for(let i = 2; i < row.length; i += 3){ // C = index 2
-    result.push((row[i] || "").toString());
+  for(let i = 2; i < row.length; i += 3){  // เริ่มที่ C = index 2
+    const headerName = (headers[i] || "").toString();
+    const value = (row[i] || "").toString();
+    result.push(`${headerName}: ${value}`);
   }
   return result.join(" | ");
 }
@@ -235,7 +237,7 @@ async function load(){
       if(isPass) itemCounts[item].pass++; else itemCounts[item].fail++;
 
       summary.push({
-        ins: pickEveryThirdColumn(r),
+        ins: pickEveryThirdColumn(r, headers),
         dt: obj["date/time"] || obj["datetime"] || obj["date"] || r[1] || "",
         isPass
       });
