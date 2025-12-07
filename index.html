@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    /* (คงสไตล์เดิมทั้งหมด ไม่ตัดออกเพื่อให้ UI เหมือนเดิม) */
     :root{
       --bg:#eef4f8;
       --card:#ffffff;
@@ -38,20 +37,26 @@
     }
     .topbar h1{margin:0;font-size:22px;font-weight:700}
     .topbar .user{
-      width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);
+      width:44px;height:44px;border-radius:50%;
+      background:rgba(255,255,255,0.08);
       display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff
     }
 
     .controls{display:flex;gap:12px;align-items:center;margin-top:18px}
     label{font-weight:600;color:var(--muted)}
     select{padding:10px 12px;border-radius:10px;border:1px solid #dfe7ef;background:var(--card);font-weight:600}
-    button#btnLoad{padding:10px 14px;border-radius:10px;border:none;background:#0b64a3;color:white;font-weight:700;cursor:pointer}
+    button#btnLoad{
+      padding:10px 14px;border-radius:10px;border:none;
+      background:#0b64a3;color:white;font-weight:700;cursor:pointer;
+      box-shadow:0 6px 12px rgba(11,100,163,0.18)
+    }
     #msg{color:var(--muted);margin-left:6px}
 
     .kpi-grid{
       display:grid;
       grid-template-columns:repeat(4,1fr);
-      gap:18px;margin-top:18px;
+      gap:18px;
+      margin-top:18px;
     }
     .kpi{background:var(--card);padding:20px;border-radius:12px;box-shadow:var(--shadow)}
     .kpi .label{color:var(--muted);font-size:14px;margin-bottom:8px}
@@ -60,31 +65,40 @@
     .main{
       display:grid;
       grid-template-columns: 1fr 420px;
-      gap:22px;margin-top:22px;
+      gap:22px;
+      margin-top:22px;
     }
 
-    .panel{
-      background:var(--card);padding:20px;border-radius:12px;box-shadow:var(--shadow);
-    }
+    .panel{background:var(--card);padding:20px;border-radius:12px;box-shadow:var(--shadow)}
     .panel h3{margin:0 0 12px;font-size:18px;color:#0b1720}
 
-    .donut-wrap{display:flex;gap:20px;align-items:center}
     .donut-legend{display:flex;flex-direction:column;gap:10px;margin-left:12px}
     .leg-item{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--muted)}
     .swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
 
-    .summary-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
-    .summary-table th{background:#f6f9fb;text-align:left;padding:10px 12px;font-weight:700;color:var(--muted)}
+    .right-panel .chart-area{height:520px;padding-top:6px}
+
+    .summary-table{
+      width:100%;border-collapse:collapse;margin-top:8px;font-size:14px
+    }
+    .summary-table th{
+      background:#f6f9fb;text-align:left;padding:10px 12px;
+      font-weight:700;color:var(--muted);border-bottom:1px solid #eef3f6
+    }
     .summary-table td{padding:12px;border-bottom:1px solid #f1f4f6}
     .status{padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:13px;display:inline-block}
     .status.pass{background:var(--green)}
     .status.fail{background:var(--red)}
 
+    @media(max-width:1100px){
+      .main{grid-template-columns: 1fr}
+      .right-panel .chart-area{height:380px}
+      .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    }
   </style>
 </head>
 <body>
-
-<div class="wrap">
+  <div class="wrap">
 
     <div class="topbar">
       <h1>แดชบอร์ดตรวจสอบเครื่องจักร</h1>
@@ -92,59 +106,83 @@
     </div>
 
     <div class="controls">
-      <label>เลือกชีต:</label>
+      <label for="sheetSelect">เลือกชีต:</label>
       <select id="sheetSelect">
-        <option>หลังการใช้งาน</option>
-        <option>ทุก 4 เดือน</option>
-        <option>รายปี</option>
+        <option value="หลังการใช้งาน">หลังการใช้งาน</option>
+        <option value="ทุก 4 เดือน">ทุก 4 เดือน</option>
+        <option value="รายปี">รายปี</option>
       </select>
       <button id="btnLoad">โหลดข้อมูล</button>
       <span id="msg"></span>
     </div>
 
-    <div class="panel" style="margin-top:22px">
-      <h3>สรุปผลการตรวจ</h3>
-      <table class="summary-table" id="summaryTable">
-        <thead>
-          <tr><th>รายการ</th><th>วันที่</th><th>ผ่าน</th><th>สถานะ</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">ตรวจทั้งหมด</div><div id="totalIns" class="value">—</div></div>
+      <div class="kpi"><div class="label">ผ่านทั้งหมด</div><div id="totalPass" class="value">—</div></div>
+      <div class="kpi"><div class="label">ไม่ผ่านทั้งหมด</div><div id="totalFail" class="value">—</div></div>
+      <div class="kpi"><div class="label">อัตราผ่าน</div><div id="passRate" class="value">—</div></div>
     </div>
 
-</div>
+    <div class="main">
+      <div>
+        <div class="panel">
+          <h3>อัตราส่วน ผ่าน / ไม่ผ่าน</h3>
+          <div style="display:flex;align-items:center;gap:18px;">
+            <canvas id="pieChart" width="320" height="220"></canvas>
+            <div class="donut-legend">
+              <div class="leg-item"><span class="swatch" style="background:var(--green)"></span>ผ่าน</div>
+              <div class="leg-item"><span class="swatch" style="background:var(--red)"></span>ไม่ผ่าน</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <h3>สรุปผลการตรวจ</h3>
+          <table class="summary-table" id="summaryTable">
+            <thead>
+              <tr>
+                <th style="width:28%">รายการ</th>
+                <th style="width:32%">วันที่ / เวลา</th>
+                <th style="width:15%">ผ่าน</th>
+                <th style="width:25%">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="panel">
+          <h3>จำนวน ผ่าน/ไม่ผ่าน (แยกตามรายการตรวจ)</h3>
+          <div class="chart-area"><canvas id="barChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbwCxcc5pTD08dGYOw1Qa3Xnb2XgLRoY4XcKaGyzMmM3QS2VgWkl4mj0WuKKtaJYL0MI/exec";
+const API_URL = "YOUR_API_URL_HERE";
 
-/* ⭐ แก้ใหม่: ฟังก์ชันแยกรายการตรวจแต่ละข้อ ⭐ */
-function extractInspectionItems(row, headers, dateStr) {
-  const items = [];
-
-  for (let i = 2; i < row.length; i += 3) {
-    const name = row[i] || "";
-    const date = row[i + 1] || dateStr || "";
-    const status = (row[i + 2] || "").toLowerCase();
-
-    if (name.trim() !== "") {
-      items.push({
-        name: name,
-        date: date,
-        isPass:
-          status.includes("ผ่าน") ||
-          status.includes("pass") ||
-          status.includes("ok") ||
-          status === "p"
-      });
+/* ===============================
+   ดึงชื่อรายการและค่า ผ่าน/ไม่ผ่าน
+   จากคอลัมน์ C,E,G,I,K,... (index 2,4,6,...)
+================================ */
+function pickInspectionItems(row, headers){
+  const result = [];
+  for(let i = 2; i < row.length; i += 2){  
+    const header = (headers[i] || "").toString().trim();
+    const value = (row[i] || "").toString().trim();
+    if(header !== ""){
+      result.push(`${header}: ${value}`);
     }
   }
-  return items;
+  return result.join(" | ");
 }
 
 function escapeHtml(s){
-  return s ? s.replace(/[&<>"']/g, m => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-  }[m])) : "";
+  return s ? s.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) : "";
 }
 
 document.getElementById("btnLoad").addEventListener("click", load);
@@ -155,46 +193,62 @@ async function load(){
   msg.textContent = "กำลังโหลด...";
 
   try{
-    const res = await fetch(`${API_URL}?sheet=${sheet}`);
+    const res = await fetch(`${API_URL}?sheet=${encodeURIComponent(sheet)}`);
     const json = await res.json();
     const csv = json.data;
+    if(!csv || csv.length < 2) throw new Error("No data");
 
-    const headers = csv[0].map(h => h.toLowerCase().trim());
+    const headers = csv[0];
     const rows = csv.slice(1);
 
+    let total = 0, pass = 0, fail = 0;
+    const itemCounts = {};
     const summary = [];
 
-    rows.forEach(row=>{
-      const date = row[1] || "";
-      const extracted = extractInspectionItems(row, headers, date);
-      extracted.forEach(x => summary.push(x));
+    rows.forEach(r => {
+      if(r.join("").trim() === "") return;
+
+      total++;
+
+      const items = pickInspectionItems(r, headers);
+
+      const dt = r[1] || "";
+
+      // ตรวจผ่าน / ไม่ผ่าน จากคอลัมน์สุดท้ายหรือคำใกล้เคียง
+      let resultText = (r[r.length-1] || "").toLowerCase();
+      const isPass = resultText.includes("ผ่าน") || resultText.includes("pass") || resultText === "p";
+
+      if(isPass) pass++;
+      else fail++;
+
+      summary.push({ ins: items, dt, isPass });
     });
+
+    document.getElementById("totalIns").textContent = total;
+    document.getElementById("totalPass").textContent = pass;
+    document.getElementById("totalFail").textContent = fail;
+    document.getElementById("passRate").textContent = total>0 ? Math.round(pass/total*100)+"%" : "—";
 
     const tbody = document.querySelector("#summaryTable tbody");
     tbody.innerHTML = "";
-
-    summary.forEach((r, idx)=>{
+    summary.slice(0,10).forEach(r => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${idx+1}. ${escapeHtml(r.name)}</td>
-        <td>${escapeHtml(r.date)}</td>
-        <td>${r.isPass ? 1 : 0}</td>
-        <td>${r.isPass ? 
-            '<span class="status pass">ผ่าน</span>' :
-            '<span class="status fail">ไม่ผ่าน</span>'}</td>
+        <td>${escapeHtml(r.ins)}</td>
+        <td>${escapeHtml(r.dt)}</td>
+        <td>${r.isPass?1:0}</td>
+        <td>${r.isPass?'<span class="status pass">ผ่าน</span>':'<span class="status fail">ไม่ผ่าน</span>'}</td>
       `;
       tbody.appendChild(tr);
     });
 
     msg.textContent = "";
-
-  } catch(e){
+  } 
+  catch(err){
+    console.error(err);
     msg.textContent = "โหลดข้อมูลไม่ได้";
-    console.error(e);
   }
 }
-
-load();
 </script>
 
 </body>
