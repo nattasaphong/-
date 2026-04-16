@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Generate Barcode</title>
+
+<!-- โหลด library -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode"></script>
+
+</head>
+
+<body>
+
+<h2>สร้างบาร์โค้ด</h2>
+
+<button onclick="generate()">Generate Barcode</button>
+
+<h3 id="code"></h3>
+<svg id="barcode"></svg>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/1oQfyt2-xgjmWm0Hln2qobQqpSFnKQvuFHEAsvoqQVUk/exec";
+
+function generate() {
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "generate"
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+
+    document.getElementById("code").innerText = data.code;
+
+    JsBarcode("#barcode", data.code, {
+      format: "CODE128",
+      width: 2,
+      height: 80
+    });
+
+  })
+  .catch(err => {
+    console.log(err);
+    alert("เชื่อมต่อไม่สำเร็จ");
+  });
+}
+</script>
+
+</body>
+</html>
